@@ -42,16 +42,17 @@ export async function POST(req: Request) {
 
   try {
     if (parsed.data.action === "business") {
+      const businessInput = parsed.data;
       const existing = await prisma.businessMember.findFirst({ where: { userId: user.id } });
       if (existing) return NextResponse.json({ error: "You already belong to a business." }, { status: 409 });
 
       const business = await prisma.$transaction(async (tx) => {
         const created = await tx.business.create({
           data: {
-            name: parsed.data.name,
-            website: parsed.data.website || null,
-            industry: parsed.data.industry || null,
-            description: parsed.data.description || null,
+            name: businessInput.name,
+            website: businessInput.website || null,
+            industry: businessInput.industry || null,
+            description: businessInput.description || null,
           },
         });
         await tx.businessMember.create({ data: { businessId: created.id, userId: user.id, role: "OWNER" } });
