@@ -1,5 +1,4 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
 
 /**
  * Portable, memory-hard password hashing via Node's built-in scrypt.
@@ -7,7 +6,6 @@ import { promisify } from "node:util";
  * signup could start (its binary wasn't included in the deployment).
  * This format includes a random salt and work factor for each password.
  */
-const scrypt = promisify(scryptCallback);
 const COST = 32768;
 const SALT_BYTES = 16;
 const KEY_BYTES = 64;
@@ -16,12 +14,17 @@ const DUMMY_SALT = Buffer.alloc(SALT_BYTES);
 const DUMMY_HASH = Buffer.alloc(KEY_BYTES);
 
 async function derive(password: string, salt: Buffer, cost: number): Promise<Buffer> {
-  return (await scrypt(password, salt, KEY_BYTES, {
-    N: cost,
-    r: 8,
-    p: 1,
-    maxmem: MEMORY_LIMIT,
-  })) as Buffer;
+  return new Promise<Buffer>((resolve, reject) => {
+    scryptCallback(password, salt, KEY_BYTES, {
+      N: cost,
+      r: 8,
+      p: 1,
+      maxmem: MEMORY_LIMIT,
+    }, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
 }
 
 export async function hashPassword(plain: string): Promise<string> {
