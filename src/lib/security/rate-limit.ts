@@ -121,12 +121,12 @@ export function getTrustedClientIp(req: Request): string {
   const platformHeaders = ["cf-connecting-ip", "x-vercel-forwarded-for", "fly-client-ip", "x-real-ip"];
   for (const h of platformHeaders) {
     const value = req.headers.get(h);
-    if (value) return value.split(",")[0].trim();
+    if (value) return value.split(",")[0]?.trim() || "unknown";
   }
 
   if (process.env.TRUST_PROXY === "true") {
     const xff = req.headers.get("x-forwarded-for");
-    if (xff) return xff.split(",")[0].trim();
+    if (xff) return xff.split(",")[0]?.trim() || "unknown";
   }
 
   return "unknown";
