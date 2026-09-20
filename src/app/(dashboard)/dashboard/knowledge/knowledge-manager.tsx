@@ -18,7 +18,7 @@ interface Source {
 type Tab = "text" | "faq" | "website" | "file";
 
 export function KnowledgeManager({ agents }: { agents: { id: string; name: string }[] }) {
-  const [agentId, setAgentId] = useState(agents[0].id);
+  const [agentId, setAgentId] = useState(agents[0]?.id ?? "");
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("text");
