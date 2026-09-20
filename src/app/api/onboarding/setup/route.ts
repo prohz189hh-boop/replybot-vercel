@@ -33,6 +33,26 @@ const schema = z.discriminatedUnion("action", [
   }),
 ]);
 
+/** Resume onboarding safely after refresh without making duplicate agents. */
+export async function GET() {
+  const ctx = await resolveDashboardContextForApi();
+  if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const agent = await prisma.agent.findFirst({
+    where: { businessId: ctx.business.id },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, publicId: true, name: true, personality: true, responseLength: true },
+  });
+  return NextResponse.json({
+    business: {
+      name: ctx.business.name,
+      website: ctx.business.website,
+      industry: ctx.business.industry,
+      description: ctx.business.description,
+    },
+    agent,
+  });
+}
+
 export async function POST(req: Request) {
   const user = await requireUserForOnboarding();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -43,8 +63,28 @@ export async function POST(req: Request) {
   try {
     if (parsed.data.action === "business") {
       const businessInput = parsed.data;
-      const existing = await prisma.businessMember.findFirst({ where: { userId: user.id } });
-      if (existing) return NextResponse.json({ error: "You already belong to a business." }, { status: 409 });
+      // Signup already creates an owned business. Update that workspace
+      // instead of rejecting the user or creating a duplicate tenant.
+      const existing = await prisma.businessMember.findFirst({
+        where: { userId: user.id, role: "OWNER" },
+        orderBy: { createdAt: "asc" },
+      });
+      if (existing) {
+        const business = await prisma.business.update({
+          where: { id: existing.businessId },
+          data: {
+            name: businessInput.name,
+            website: businessInput.website || null,
+            industry: businessInput.industry || null,
+            description: businessInput.description || null,
+          },
+        });
+        setActiveBusinessCookie(business.id);
+        await logAudit({ businessId: business.id, userId: user.id, action: "onboarding.business.updated" });
+        return NextResponse.json({ business });
+      }
+      const membership = await prisma.businessMember.findFirst({ where: { userId: user.id } });
+      if (membership) return NextResponse.json({ error: "Only a business owner can complete this setup." }, { status: 403 });
 
       const business = await prisma.$transaction(async (tx) => {
         const created = await tx.business.create({
