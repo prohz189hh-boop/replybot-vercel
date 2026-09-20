@@ -49,7 +49,7 @@ describe("[integration/db] duplicate clientMessageId does not create duplicate m
 
     const rows = await prisma.message.findMany({ where: { conversationId, clientMessageId } });
     expect(rows).toHaveLength(1);
-    expect(rows[0].id).toBe(first.id);
+    expect(rows[0]?.id).toBe(first.id);
   });
 
   it("different clientMessageIds within the same conversation both persist", async () => {
