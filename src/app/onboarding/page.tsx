@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ErrorText, FieldLabel, inputClasses, Panel } from "@/components/ui/primitives";
@@ -27,6 +27,44 @@ export default function OnboardingPage() {
   const [testReply, setTestReply] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+
+  // Signup has already created the business. Restore its details and
+  // previously created agent to make onboarding refresh-safe.
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const res = await fetch("/api/onboarding/setup", { signal: controller.signal });
+        if (res.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!res.ok) throw new Error("We couldn't load your workspace. Please refresh.");
+        const data = await res.json();
+        if (controller.signal.aborted) return;
+        if (data.business) {
+          setBusinessName(data.business.name ?? "");
+          setWebsite(data.business.website ?? "");
+          setIndustry(data.business.industry ?? "");
+          setDescription(data.business.description ?? "");
+        }
+        if (data.agent) {
+          setAgentId(data.agent.id);
+          setAgentPublicId(data.agent.publicId);
+          setAgentName(data.agent.name);
+          setPersonality(data.agent.personality);
+          setResponseLength(data.agent.responseLength);
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Could not load workspace.");
+      } finally {
+        if (!controller.signal.aborted) setInitializing(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [router]);
 
   const installSnippet = useMemo(
     () => `<script src="${typeof window !== "undefined" ? window.location.origin : ""}/widget/loader.js" data-agent-id="${agentPublicId}"></script>`,
@@ -51,9 +89,11 @@ export default function OnboardingPage() {
       if (step === 0) {
         await post({ action: "business", name: businessName, website, industry, description });
       } else if (step === 1) {
-        const data = await post({ action: "agent", name: agentName, personality, responseLength });
-        setAgentId(data.agent.id);
-        setAgentPublicId(data.agent.publicId);
+        if (!agentId) {
+          const data = await post({ action: "agent", name: agentName, personality, responseLength });
+          setAgentId(data.agent.id);
+          setAgentPublicId(data.agent.publicId);
+        }
       } else if (step === 2) {
         if (knowledgeMode === "TEXT" && knowledge.trim()) {
           await post({ action: "knowledge", agentId, kind: "TEXT", name: knowledgeName, content: knowledge });
@@ -89,7 +129,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-paper px-4 py-8">
+    <main className="min-h-screen bg-[#F8F9FD] px-4 py-8">
       <div className="mx-auto max-w-2xl">
         <div className="text-center">
           <p className="text-lg font-semibold text-ink">ReplyPilot</p>
@@ -179,8 +219,9 @@ export default function OnboardingPage() {
 
           <ErrorText>{error}</ErrorText>
           <div className="mt-6 flex justify-between gap-3">
-            <Button type="button" variant="secondary" onClick={back} disabled={step === 0 || loading}>Back</Button>
-            <Button type="button" onClick={next} disabled={loading || (step === 0 && !businessName.trim()) || (step === 1 && !agentName.trim())}>
+            <Button type="button" variant="secondary" onClick={back} disabled={step === 0 || loading || initializing}>Back</Button>
+            {step === 3 && <button type="button" disabled={loading} onClick={() => { setError(null); setStep(4); }} className="ml-auto rounded-xl px-3 py-2 text-xs font-bold text-[#665CEB] hover:bg-[#EEEAFE] disabled:opacity-50">Skip test for now</button>}
+            <Button type="button" onClick={next} disabled={loading || initializing || (step === 0 && !businessName.trim()) || (step === 1 && !agentName.trim())}>
               {loading ? "Working…" : step === 4 ? "Go to dashboard" : step === 2 ? "Continue" : "Continue"}
             </Button>
           </div>
