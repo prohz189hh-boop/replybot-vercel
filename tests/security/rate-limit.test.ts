@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { checkRateLimit, getTrustedClientIp } from "@/lib/security/rate-limit";
 
 describe("rate limiting (in-memory adapter)", () => {
@@ -42,6 +42,8 @@ describe("rate limiting (in-memory adapter)", () => {
 });
 
 describe("trusted client IP extraction", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   function reqWithHeaders(headers: Record<string, string>) {
     return new Request("https://app.replypilot.example/api/public/chat", { headers });
   }
@@ -54,9 +56,16 @@ describe("trusted client IP extraction", () => {
     expect(getTrustedClientIp(req)).toBe("1.2.3.4");
   });
 
-  it("falls back to the first entry of X-Forwarded-For when no platform header is present", () => {
+  it("uses the first X-Forwarded-For entry only when TRUST_PROXY=true", () => {
+    vi.stubEnv("TRUST_PROXY", "true");
     const req = reqWithHeaders({ "x-forwarded-for": "5.6.7.8, 10.0.0.1" });
     expect(getTrustedClientIp(req)).toBe("5.6.7.8");
+  });
+
+  it("ignores caller-provided X-Forwarded-For unless a trusted proxy is configured", () => {
+    vi.stubEnv("TRUST_PROXY", "false");
+    const req = reqWithHeaders({ "x-forwarded-for": "5.6.7.8, 10.0.0.1" });
+    expect(getTrustedClientIp(req)).toBe("unknown");
   });
 
   it("returns 'unknown' rather than throwing when no IP information is present", () => {
