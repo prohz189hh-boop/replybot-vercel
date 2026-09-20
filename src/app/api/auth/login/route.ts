@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   // fixed dummy hash — otherwise "unknown email" responds faster than
   // "wrong password," and that timing difference lets an attacker
   // enumerate registered emails.
-  const DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+  const DUMMY_HASH = "scrypt$32768$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
   const validPassword = await verifyPassword(user?.passwordHash ?? DUMMY_HASH, password);
 
   if (!user || !validPassword) {
