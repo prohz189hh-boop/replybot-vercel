@@ -1,0 +1,437 @@
+// ReplyPilot — Prisma schema
+// Multi-tenant AI customer support SaaS.
+// Every tenant-scoped model carries a `businessId` FK, and every query in
+// the app layer MUST filter by it (see src/lib/tenant/guard.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Identity & tenancy
+// ─────────────────────────────────────────────────────────────────────────
+
+enum PlatformRole {
+  USER
+  PLATFORM_ADMIN
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  passwordHash      String
+  name              String?
+  platformRole      PlatformRole @default(USER)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  memberships       BusinessMember[]
+  invitationsSent   TeamInvitation[] @relation("InvitedBy")
+  auditLogs         AuditLog[]
+  passwordResets    PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  sessions          Session[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum BusinessRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+model Business {
+  id               String   @id @default(cuid())
+  name             String
+  website          String?
+  industry         String?
+  description      String?
+  contactEmail     String?
+  contactPhone     String?
+  openingHours     Json?
+  address          String?
+  supportedLanguages String[] @default(["en"])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  members          BusinessMember[]
+  agents           Agent[]
+  knowledgeSources KnowledgeSource[]
+  customers        Customer[]
+  conversations    Conversation[]
+  invitations      TeamInvitation[]
+  subscription     Subscription?
+  usageRecords     UsageRecord[]
+  auditLogs        AuditLog[]
+
+  @@index([name])
+}
+
+model BusinessMember {
+  id         String       @id @default(cuid())
+  businessId String
+  business   Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       BusinessRole @default(AGENT)
+  createdAt  DateTime     @default(now())
+
+  @@unique([businessId, userId])
+  @@index([businessId])
+  @@index([userId])
+}
+
+model TeamInvitation {
+  id          String       @id @default(cuid())
+  businessId  String
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  email       String
+  role        BusinessRole @default(AGENT)
+  tokenHash   String       @unique
+  invitedById String
+  invitedBy   User         @relation("InvitedBy", fields: [invitedById], references: [id])
+  acceptedAt  DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime     @default(now())
+
+  @@index([businessId])
+  @@index([email])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Agents & knowledge
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AgentPersonality {
+  PROFESSIONAL
+  FRIENDLY
+  CONCISE
+  DETAILED
+}
+
+enum ResponseLength {
+  SHORT
+  BALANCED
+  DETAILED
+}
+
+model Agent {
+  id                  String           @id @default(cuid())
+  publicId            String           @unique @default(cuid()) // safe for widget/client use
+  businessId          String
+  business            Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name                String
+  personality         AgentPersonality @default(FRIENDLY)
+  responseLength      ResponseLength   @default(BALANCED)
+  languages           String[]         @default(["en"])
+  confidenceThreshold Float            @default(0.55)
+  fallbackMessage     String           @default("I don't have enough information to answer that accurately. Would you like me to connect you with a member of the team?")
+  escalationKeywords  String[]         @default(["human", "agent", "representative", "talk to someone"])
+  // Origins allowed to embed this agent's widget (e.g. "https://acme.com").
+  // Empty array = not yet configured; the public API treats that as
+  // "no origin allowed" in production and "localhost only" in dev,
+  // rather than defaulting open. See src/lib/security/cors.ts.
+  allowedDomains      String[]         @default([])
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  widgetConfig        WidgetConfiguration?
+  knowledgeSources     KnowledgeSource[]
+  conversations        Conversation[]
+  unansweredQuestions   UnansweredQuestion[]
+
+  @@index([businessId])
+  @@index([publicId])
+}
+
+model WidgetConfiguration {
+  id                  String   @id @default(cuid())
+  agentId             String   @unique
+  agent               Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  logoUrl             String?
+  welcomeMessage      String   @default("Hi! How can I help you today?")
+  primaryColor        String   @default("#6366F1")
+  position             String   @default("bottom-right") // bottom-right | bottom-left
+  chatButtonText       String   @default("Chat with us")
+  theme                String   @default("auto") // light | dark | auto
+  avatarUrl            String?
+  humanHandoffMessage  String   @default("Connecting you with a team member...")
+  updatedAt            DateTime @updatedAt
+}
+
+enum KnowledgeSourceType {
+  MANUAL_TEXT
+  FAQ
+  WEBSITE
+  FILE
+}
+
+enum KnowledgeSourceStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model KnowledgeSource {
+  id          String                 @id @default(cuid())
+  businessId  String
+  business    Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  agentId     String
+  agent       Agent                  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  type        KnowledgeSourceType
+  name        String
+  sourceUrl   String?
+  filePath    String?
+  rawContent  String?                @db.Text
+  status      KnowledgeSourceStatus  @default(PROCESSING)
+  errorMessage String?
+  chunkCount  Int                    @default(0)
+  lastIndexedAt DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  chunks      KnowledgeChunk[]
+
+  @@index([businessId])
+  @@index([agentId])
+  @@index([status])
+}
+
+model KnowledgeChunk {
+  id                String          @id @default(cuid())
+  knowledgeSourceId String
+  knowledgeSource   KnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+  businessId        String // denormalized for fast tenant-scoped vector search
+  content           String          @db.Text
+  embedding         Unsupported("vector(1536)")? // pgvector; see src/lib/rag/vector-store.ts
+  tokenCount        Int             @default(0)
+  createdAt         DateTime        @default(now())
+
+  @@index([knowledgeSourceId])
+  @@index([businessId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Conversations
+// ─────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  // Server-issued visitor identifier (see src/lib/widget/visitor-token.ts).
+  // NEVER a client-supplied/browser-generated value — the widget cannot
+  // choose or forge this; it only echoes back a token the server minted.
+  externalId   String
+  name         String?
+  email        String?
+  createdAt    DateTime @default(now())
+
+  conversations Conversation[]
+
+  // This is the identity model: one Customer row per (business, visitor).
+  // A real unique constraint, not just an index — Prisma's `upsert` needs
+  // this to be atomic, and the DB (not app code) is the source of truth
+  // that prevents duplicate visitor rows under concurrent requests.
+  @@unique([businessId, externalId])
+  @@index([businessId])
+}
+
+enum ConversationStatus {
+  OPEN
+  AI
+  WAITING_FOR_HUMAN
+  HUMAN
+  RESOLVED
+}
+
+model Conversation {
+  id            String              @id @default(cuid())
+  businessId    String
+  business      Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  agentId       String
+  agent         Agent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status        ConversationStatus  @default(AI)
+  assignedToId  String?             // BusinessMember.id of assigned agent
+  unreadCount   Int                 @default(0)
+  // Soft lease preventing two concurrent requests from both generating
+  // an AI reply for this conversation (see src/lib/rag/concurrency.ts).
+  // Set to now() when a request claims the right to call the AI
+  // provider, cleared when it finishes (success or failure). A lease
+  // older than the TTL is considered abandoned/stale and reclaimable,
+  // so a crashed request can't permanently wedge the conversation.
+  aiLockedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  messages      Message[]
+  notes         InternalNote[]
+  unansweredQuestions UnansweredQuestion[]
+
+  @@index([businessId])
+  @@index([businessId, status])
+  @@index([agentId])
+  @@index([customerId])
+}
+
+enum MessageSender {
+  CUSTOMER
+  AI
+  HUMAN
+  SYSTEM
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         MessageSender
+  content        String        @db.Text
+  authorMemberId String?       // set when sender = HUMAN
+  retrievedChunkIds String[]   @default([]) // provenance for AI answers
+  confidence     Float?
+  // Client-generated idempotency key for CUSTOMER-sent messages (a UUID
+  // the widget generates once per send and retries with unchanged). Null
+  // for AI/HUMAN/SYSTEM messages, which the server originates itself.
+  // The partial unique index below makes retried public-chat requests
+  // safe to replay: a duplicate (conversationId, clientMessageId) simply
+  // returns the existing row instead of inserting a second message.
+  clientMessageId String?
+  createdAt      DateTime      @default(now())
+
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+  @@unique([conversationId, clientMessageId])
+}
+
+model InternalNote {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorMemberId String
+  content        String       @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+enum UnansweredStatus {
+  UNANSWERED
+  ANSWERED
+  IGNORED
+}
+
+model UnansweredQuestion {
+  id             String           @id @default(cuid())
+  businessId     String
+  agentId        String
+  agent          Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId String?
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  question       String           @db.Text
+  reason         String           // LOW_CONFIDENCE | USER_REQUESTED_HUMAN | EXPLICIT_UNKNOWN
+  status         UnansweredStatus @default(UNANSWERED)
+  createdAt      DateTime         @default(now())
+
+  @@index([businessId, status])
+  @@index([agentId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Billing
+// ─────────────────────────────────────────────────────────────────────────
+
+enum PlanTier {
+  FREE
+  PRO
+  BUSINESS
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  businessId           String   @unique
+  business             Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan                 PlanTier @default(FREE)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model UsageRecord {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  metric      String   // ai_messages | conversations | knowledge_sources | team_members
+  period      String   // YYYY-MM
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessId, metric, period])
+  @@index([businessId, period])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Audit
+// ─────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // e.g. "agent.created", "knowledge.deleted", "conversation.assigned"
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@index([action])
+}
