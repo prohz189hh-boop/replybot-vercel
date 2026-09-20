@@ -1,32 +1,66 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light;
+  font-synthesis: none;
 }
 
-html,
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: #fafaf8;
-  color: #14171f;
+  margin: 0;
+  background: #f8f9fd;
+  color: #19172f;
+  font-family: "DM Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-* {
-  border-color: #e4e4e1;
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+::selection { background: #d9d6ff; color: #26215a; }
+:focus-visible { outline: 3px solid #756bf7; outline-offset: 3px; }
+
+@layer components {
+  .rp-field {
+    @apply block w-full rounded-xl border border-[#D9DBE9] bg-white px-4 py-3 text-[14px] font-medium text-[#252343] shadow-[0_1px_2px_rgba(23,20,54,0.03)] outline-none transition-all placeholder:font-normal placeholder:text-[#9293AA] focus:border-[#7268EF] focus:ring-4 focus:ring-[#7268EF]/10;
+  }
+  .rp-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-[#6257EF] px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(98,87,239,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#5146DD] hover:shadow-[0_12px_24px_rgba(98,87,239,0.24)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0;
+  }
+  .rp-panel {
+    @apply rounded-2xl border border-[#E8E8F2] bg-white shadow-[0_12px_50px_rgba(26,23,71,0.035)];
+  }
 }
 
-:focus-visible {
-  outline: 2px solid #3e5ce8;
-  outline-offset: 2px;
+.rp-dot-grid {
+  background-image: radial-gradient(rgba(180, 176, 255, .15) 1px, transparent 1px);
+  background-size: 25px 25px;
 }
+
+.rp-hero-gradient {
+  background: radial-gradient(circle at 16% 15%, rgba(113,97,251,.36), transparent 29%),
+              radial-gradient(circle at 95% 40%, rgba(38,170,165,.21), transparent 30%),
+              linear-gradient(132deg,#100F31 2%,#211A53 56%,#15173C 100%);
+}
+
+.rp-aurora {
+  background: radial-gradient(circle,rgba(110,96,250,.43),transparent 68%);
+  filter: blur(35px);
+}
+
+@keyframes rp-float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+.rp-float { animation: rp-float 7s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
