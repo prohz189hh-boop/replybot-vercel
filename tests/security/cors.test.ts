@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { resolveCorsOrigin, handlePreflight } from "@/lib/security/cors";
 
 function reqWithOrigin(origin: string | null) {
@@ -8,10 +8,8 @@ function reqWithOrigin(origin: string | null) {
 }
 
 describe("CORS origin resolution", () => {
-  const originalEnv = process.env.NODE_ENV;
-
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    vi.unstubAllEnvs();
   });
 
   it("allows an origin present in the agent's allowedDomains", () => {
@@ -25,19 +23,19 @@ describe("CORS origin resolution", () => {
   });
 
   it("rejects every origin when allowedDomains is empty, in production", () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const result = resolveCorsOrigin(reqWithOrigin("https://acme.com"), []);
     expect(result).toBeNull();
   });
 
   it("allows localhost in non-production even with empty allowedDomains", () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     const result = resolveCorsOrigin(reqWithOrigin("http://localhost:3000"), []);
     expect(result).toBe("http://localhost:3000");
   });
 
   it("does NOT allow localhost in production", () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const result = resolveCorsOrigin(reqWithOrigin("http://localhost:3000"), []);
     expect(result).toBeNull();
   });
