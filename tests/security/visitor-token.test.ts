@@ -35,6 +35,8 @@ describe("visitor token", () => {
     const { token } = issueVisitorToken("agent_abc123");
     const [payload, signature] = token.split(".");
 
+    if (!payload || !signature) throw new Error("Malformed issued token");
+
     // Flip the visitorId inside the payload without re-signing —
     // simulates a customer editing localStorage to impersonate someone
     // else's conversation.
@@ -63,6 +65,7 @@ describe("visitor token", () => {
   it("rejects an expired token", () => {
     const { token } = issueVisitorToken("agent_abc123");
     const [payload, signature] = token.split(".");
+    if (!payload || !signature) throw new Error("Malformed issued token");
     const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
 
     // Back-date issuance by 181 days (TTL is 180).
