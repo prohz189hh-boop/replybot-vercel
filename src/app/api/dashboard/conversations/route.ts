@@ -62,6 +62,6 @@ export async function GET(req: Request) {
       lastMessage: c.messages[0]?.content ?? null,
       assignedToId: c.assignedToId,
     })),
-    nextCursor: hasMore ? page[page.length - 1].id : null,
+    nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   });
 }
