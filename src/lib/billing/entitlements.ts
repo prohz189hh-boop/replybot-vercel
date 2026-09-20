@@ -6,7 +6,9 @@ import type { PlanTier } from "@prisma/client";
  * plan-gated reads from here — never hard-code a limit inline in a
  * route handler.
  */
-export const PLAN_LIMITS: Record<PlanTier, Record<string, number>> = {
+type PlanMetric = "agents" | "ai_messages" | "knowledge_sources" | "team_members";
+
+export const PLAN_LIMITS: Record<PlanTier, Record<PlanMetric, number>> = {
   FREE: { agents: 1, ai_messages: 200, knowledge_sources: 5, team_members: 2 },
   PRO: { agents: 5, ai_messages: 5000, knowledge_sources: 50, team_members: 10 },
   BUSINESS: { agents: 25, ai_messages: 50000, knowledge_sources: 500, team_members: 50 },
@@ -82,10 +84,10 @@ export async function enforceResourceLimit(
  */
 export async function reserveUsage(
   businessId: string,
-  metric: string,
+  metric: PlanMetric,
 ): Promise<{ reserved: true } | { reserved: false; limit: number }> {
   const plan = await getPlan(businessId);
-  const limit = PLAN_LIMITS[plan][metric as keyof (typeof PLAN_LIMITS)["FREE"]];
+  const limit = PLAN_LIMITS[plan][metric];
   const period = currentPeriod();
 
   const rows = await prisma.$queryRawUnsafe<Array<{ count: number }>>(
