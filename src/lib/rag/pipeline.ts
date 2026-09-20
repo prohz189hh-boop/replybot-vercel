@@ -98,6 +98,9 @@ export async function runRagPipeline(params: {
   }
 
   const [queryEmbedding] = await ai.embed([customerMessage]);
+  if (!queryEmbedding) {
+    throw new Error("AI provider returned no query embedding");
+  }
   const chunks = await retrieveChunks(agent, customerMessage, queryEmbedding);
 
   // distance -> naive confidence heuristic (0 = identical, higher = further)
