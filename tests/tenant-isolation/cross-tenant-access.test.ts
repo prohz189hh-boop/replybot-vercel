@@ -106,7 +106,7 @@ describe("tenant isolation", () => {
 
   it("conversation access is denied across tenants even with a valid conversation id", async () => {
     const agentA = await prisma.agent.create({ data: { businessId: businessA.id, name: "Agent A2" } });
-    const customerA = await prisma.customer.create({ data: { businessId: businessA.id } });
+    const customerA = await prisma.customer.create({ data: { businessId: businessA.id, externalId: "cross-tenant-visitor-a" } });
     const conversation = await prisma.conversation.create({
       data: { businessId: businessA.id, agentId: agentA.id, customerId: customerA.id },
     });
