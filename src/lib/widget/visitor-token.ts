@@ -76,6 +76,7 @@ export function verifyVisitorToken(
   const parts = token.split(".");
   if (parts.length !== 2) return null;
   const [payloadStr, signature] = parts;
+  if (!payloadStr || !signature) return null;
 
   const expectedSignature = sign(payloadStr);
   const sigBuf = Buffer.from(signature);
