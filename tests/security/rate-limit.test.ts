@@ -42,7 +42,7 @@ describe("rate limiting (in-memory adapter)", () => {
 });
 
 describe("trusted client IP extraction", () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); });
 
   function reqWithHeaders(headers: Record<string, string>) {
     return new Request("https://app.replypilot.example/api/public/chat", { headers });
