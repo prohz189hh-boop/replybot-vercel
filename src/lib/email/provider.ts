@@ -52,6 +52,10 @@ class ResendProvider implements EmailProvider {
  */
 class ConsoleEmailProvider implements EmailProvider {
   async send(message: EmailMessage) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[email] Email provider is not configured; message was not sent.");
+      return { skipped: true as const, reason: "Email provider is not configured." };
+    }
     console.log(`[dev email] to=${message.to} subject="${message.subject}"\n${message.text}`);
     return { skipped: true as const, reason: "No EMAIL_API_KEY configured — logged instead of sent." };
   }
