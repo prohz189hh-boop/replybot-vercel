@@ -44,15 +44,20 @@ export async function indexKnowledgeSource(knowledgeSourceId: string, content: s
     // Written via raw SQL because Prisma's client can't yet bind a
     // pgvector literal through the normal `create` API.
     for (let i = 0; i < chunks.length; i++) {
-      const vectorLiteral = `[${embeddings[i].join(",")}]`;
+      const chunk = chunks[i];
+      const embedding = embeddings[i];
+      if (!chunk || !embedding) {
+        throw new Error(`Missing chunk or embedding at index ${i}`);
+      }
+      const vectorLiteral = `[${embedding.join(",")}]`;
       await prisma.$executeRawUnsafe(
         `INSERT INTO "KnowledgeChunk" (id, "knowledgeSourceId", "businessId", content, embedding, "tokenCount", "createdAt")
          VALUES (gen_random_uuid()::text, $1, $2, $3, $4::vector, $5, now())`,
         knowledgeSourceId,
         source.businessId,
-        chunks[i],
+        chunk,
         vectorLiteral,
-        Math.ceil(chunks[i].length / 4),
+        Math.ceil(chunk.length / 4),
       );
     }
 
