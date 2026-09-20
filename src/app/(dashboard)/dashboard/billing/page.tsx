@@ -49,7 +49,7 @@ export default async function BillingPage() {
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-paper">
                 <div
                   className="h-full bg-signal"
-                  style={{ width: `${Math.min(100, (r.used / r.limit) * 100)}%` }}
+                  style={{ width: `${r.limit != null && r.limit > 0 ? Math.min(100, (r.used / r.limit) * 100) : 0}%` }}
                 />
               </div>
             </div>
