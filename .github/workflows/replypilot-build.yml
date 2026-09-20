@@ -22,5 +22,7 @@ jobs:
       - run: npx prisma generate
       - name: Check all TypeScript errors
         run: npx tsc --noEmit --pretty false
+      - name: Run security unit tests
+        run: npx vitest run tests/security --reporter=basic
       - name: Check production build
         run: npm run build
