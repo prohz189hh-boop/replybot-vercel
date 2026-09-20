@@ -50,7 +50,7 @@ export default function SignupPage() {
         setError("We couldn't confirm your account was created. Please try again.");
         return;
       }
-      router.replace("/dashboard");
+      router.replace("/onboarding");
       router.refresh();
     } catch {
       setError("We couldn't connect to ReplyPilot. Check your connection and try again.");
