@@ -58,6 +58,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         code: "AI_NOT_CONFIGURED",
       }, { status: 503 });
     }
+    // Only return/log a safe, bounded classification. Provider bodies may
+    // contain credentials or user data; they are deliberately not included.
+    const gemini = err instanceof Error
+      ? /^Gemini (chat|embeddings) API error: ([0-9]{3}) ([A-Z_]{3,64})$/.exec(err.message)
+      : null;
+    if (gemini) {
+      const [, stage, status, category] = gemini;
+      console.error("[playground] Gemini provider rejected request", { stage, status, category });
+      const guidance = status === "401" || status === "403"
+        ? "Verify that your Gemini API key is valid and authorized for the Gemini API."
+        : status === "429"
+          ? "Google has limited your requests. Check your Gemini quota and retry."
+          : status === "404"
+            ? "Check the configured Gemini model and its availability."
+            : "Check your Gemini provider settings and retry.";
+      return NextResponse.json({
+        error: `Gemini ${stage} request failed (HTTP ${status}, ${category}). ${guidance}`,
+        code: "GEMINI_REQUEST_FAILED",
+      }, { status: 503 });
+    }
     console.error("[playground] AI request failed", err instanceof Error ? err.name : "unknown");
     return NextResponse.json({
       error: "The AI service couldn't process this message. Check the AI provider configuration and try again.",
