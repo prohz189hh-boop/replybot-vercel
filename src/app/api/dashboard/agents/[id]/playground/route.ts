@@ -52,6 +52,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
   } catch (err) {
     if (err instanceof TenantAccessError) return NextResponse.json({ error: err.message }, { status: err.status });
-    throw err;
+    if (err instanceof Error && err.message.startsWith("No AI provider configured")) {
+      return NextResponse.json({
+        error: "The AI service isn't configured yet. Add GEMINI_API_KEY in Vercel Production, then redeploy to activate the playground.",
+        code: "AI_NOT_CONFIGURED",
+      }, { status: 503 });
+    }
+    console.error("[playground] AI request failed", err instanceof Error ? err.name : "unknown");
+    return NextResponse.json({
+      error: "The AI service couldn't process this message. Check the AI provider configuration and try again.",
+      code: "AI_REQUEST_FAILED",
+    }, { status: 503 });
   }
 }
