@@ -93,7 +93,13 @@ class GeminiProvider implements AIProvider {
     );
 
     if (!res.ok) {
-      throw new Error(`Gemini API error: ${res.status} ${await res.text()}`);
+      const payload = await res.json().catch(() => null);
+      // Expose only the HTTP status and Google error category. Avoid logging
+      // response bodies, request headers or credentials in application logs.
+      const category = typeof payload?.error?.status === "string" && /^[A-Z_]{3,64}$/.test(payload.error.status)
+        ? payload.error.status
+        : "UNKNOWN";
+      throw new Error(`Gemini chat API error: ${res.status} ${category}`);
     }
 
     const data = await res.json();
@@ -129,7 +135,13 @@ class GeminiProvider implements AIProvider {
     );
 
     if (!res.ok) {
-      throw new Error(`Gemini embeddings API error: ${res.status} ${await res.text()}`);
+      const payload = await res.json().catch(() => null);
+      // Expose only the HTTP status and Google error category. Avoid logging
+      // response bodies, request headers or credentials in application logs.
+      const category = typeof payload?.error?.status === "string" && /^[A-Z_]{3,64}$/.test(payload.error.status)
+        ? payload.error.status
+        : "UNKNOWN";
+      throw new Error(`Gemini embeddings API error: ${res.status} ${category}`);
     }
 
     const data = await res.json();
