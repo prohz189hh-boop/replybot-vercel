@@ -23,6 +23,8 @@ ReplyPilot is a multi-tenant AI customer-support SaaS built with Next.js, Prisma
 
 Create environment variables from `.env.example`. Never commit `.env.local` or real credentials.
 
+After adding or rotating `GEMINI_API_KEY` in Vercel, trigger a **new Production deployment** so serverless functions receive the updated value. Then re-index any knowledge source that failed while the AI provider was missing. Confirm `/api/health` returns `{"status":"ready"}`; that endpoint checks the database, not the AI provider, so also send a test message in the agent playground.
+
 Required for a real deployment:
 
 - `DATABASE_URL` — PostgreSQL with pgvector enabled
