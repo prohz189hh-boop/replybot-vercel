@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireBusinessAccess, TenantAccessError } from "@/lib/tenant/guard";
 import { logAudit } from "@/lib/security/audit";
-import { enforceResourceLimit } from "@/lib/billing/entitlements";
+import { enforceResourceLimit, UsageLimitError } from "@/lib/billing/entitlements";
 
 const createAgentSchema = z.object({
   businessId: z.string().min(1),
@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     if (err instanceof TenantAccessError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    if (err instanceof UsageLimitError) {
+      return NextResponse.json({
+        error: "Your current plan allows one agent. Open your existing agent in the Agents list to test it, or change your plan to add more.",
+        code: "AGENT_LIMIT_REACHED",
+      }, { status: 402 });
     }
     throw err;
   }
