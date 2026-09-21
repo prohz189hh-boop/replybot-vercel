@@ -34,14 +34,21 @@ export default function PlaygroundPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: question }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error ?? "Something went wrong.");
+        setError(typeof data?.error === "string" ? data.error : "The AI service is temporarily unavailable. Please try again later.");
+        setMessage(question);
+        return;
+      }
+      if (!data || typeof data.reply !== "string") {
+        setError("The AI service returned an unexpected response. Please try again.");
+        setMessage(question);
         return;
       }
       setExchanges((prev) => [...prev, { question, ...data }]);
     } catch {
-      setError("Couldn't reach the server.");
+      setError("Couldn't reach the server. Check your connection and try again.");
+      setMessage(question);
     } finally {
       setLoading(false);
     }
